@@ -10,6 +10,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 const (
@@ -745,12 +746,18 @@ func readSheetsFromZipFile(f *zip.File, file *File, sheetXMLMap map[string]strin
 
 	go func() {
 		defer close(sheetChan)
+		var wg sync.WaitGroup
+		wg.Add(len(workbookSheets))
 		err = nil
 		for i, rawsheet := range workbookSheets {
-			if err := readSheetFromFile(sheetChan, i, rawsheet, file, sheetXMLMap, rowLimit); err != nil {
-				return
-			}
+			go func(i int, rawsheet xlsxSheet) {
+				if err := readSheetFromFile(sheetChan, i, rawsheet, file, sheetXMLMap, rowLimit); err != nil {
+					return
+				}
+				wg.Done()
+			}(i, rawsheet)
 		}
+		wg.Wait()
 	}()
 
 	for j := 0; j < sheetCount; j++ {
