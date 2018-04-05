@@ -235,6 +235,8 @@ func getBuiltinNumberFormat(numFmtId int) string {
 }
 
 func (styles *xlsxStyleSheet) getNumberFormat(styleIndex int) (string, *parsedNumberFormat) {
+	styles.Lock()
+	defer styles.Unlock()
 	var numberFormat string = "general"
 	if styles.CellXfs.Xf != nil {
 		if styleIndex > -1 && styleIndex <= styles.CellXfs.Count {
