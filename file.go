@@ -45,12 +45,29 @@ func OpenFile(fileName string) (file *File, err error) {
 // OpenFileWithRowLimit() will open the file, but will only read the specified number of rows.
 // If you save this file, it will be truncated to the number of rows specified.
 func OpenFileWithRowLimit(fileName string, rowLimit int) (file *File, err error) {
+	if LoadBookCache(fileName, &file){
+		file.restoreUnCacheableValue()
+		return
+	}
+
 	var z *zip.ReadCloser
 	z, err = zip.OpenReader(fileName)
 	if err != nil {
 		return nil, err
 	}
-	return ReadZipWithRowLimit(z, rowLimit)
+
+	file, err = ReadZipWithRowLimit(z, rowLimit)
+	if err != nil {
+		return nil, err
+	}
+
+	if CacheEnable{
+		file.removeUnCacheableValue()
+		if SaveBookCache(fileName, file){
+			file.restoreUnCacheableValue()
+		}
+	}
+	return
 }
 
 // OpenBinary() take bytes of an XLSX file and returns a populated
@@ -399,4 +416,26 @@ func (f *File) ToSliceUnmerged() (output [][][]string, err error) {
 	}
 
 	return output, nil
+}
+
+
+func (f *File) removeUnCacheableValue() {
+	f.worksheets = nil
+	f.Sheet = make(map[string]*Sheet)
+	for _,s := range f.Sheets{
+		s.File = nil
+		for _,r := range s.Rows{
+			r.Sheet = nil
+		}
+	}
+}
+func (f *File) restoreUnCacheableValue() {
+	f.Sheet = make(map[string]*Sheet)
+	for _,s := range f.Sheets{
+		s.File = f
+		f.Sheet[s.Name] = s
+		for _,r := range s.Rows{
+			r.Sheet = s
+		}
+	}
 }

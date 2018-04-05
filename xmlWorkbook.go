@@ -5,6 +5,8 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"bytes"
 )
 
 const (
@@ -204,10 +206,22 @@ func getWorksheetFromSheet(sheet xlsxSheet, worksheets map[string]*zip.File, she
 		}
 	}
 
-	decoder = xml.NewDecoder(r)
+	// read from cache
+	b, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	if LoadSheetCache(nameForSheet(sheet, sheetXMLMap), b, &worksheet) {
+		return worksheet, nil
+	}
+	decoder = xml.NewDecoder(bytes.NewBuffer(b))
+
 	err = decoder.Decode(worksheet)
 	if err != nil {
 		return nil, err
 	}
+
+	SaveSheetCache(nameForSheet(sheet, sheetXMLMap), b, worksheet)
+
 	return worksheet, nil
 }
